@@ -1,4 +1,4 @@
-package no.ssb.config;
+package io.descoped.config;
 
 import org.testng.annotations.Test;
 

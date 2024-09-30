@@ -1,3 +1,3 @@
-module no.ssb.config {
-    exports no.ssb.config;
+module io.descoped.dynamic.config {
+    exports io.descoped.config;
 }

@@ -1,4 +1,4 @@
-package no.ssb.config;
+package io.descoped.config;
 
 import java.util.Map;
 
@@ -10,6 +10,6 @@ public interface DynamicConfiguration {
 
     boolean evaluateToBoolean(String key);
 
-    Map<String,String> asMap();
+    Map<String, String> asMap();
 
 }

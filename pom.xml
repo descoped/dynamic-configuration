@@ -2,7 +2,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>no.ssb.config</groupId>
+    <groupId>io.descoped.config</groupId>
     <artifactId>dynamic-configuration</artifactId>
     <version>0.5-SNAPSHOT</version>
     <packaging>jar</packaging>
