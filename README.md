@@ -1,4 +1,10 @@
-# Configuration
+# Dynamic Configuration
+
+![Build Status](https://img.shields.io/github/actions/workflow/status/descoped/dynamic-configuration/coverage-and-sonar-analysis.yml)
+![Latest Tag](https://img.shields.io/github/v/tag/descoped/dynamic-configuration)
+![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=descoped_dynamic-configuration&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=descoped_dynamic-configuration) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=descoped_dynamic-configuration&metric=coverage)](https://sonarcloud.io/summary/new_code?id=descoped_dynamic-configuration)
+[![Snyk Security Score](https://snyk.io/test/github/descoped/dynamic-configuration/badge.svg)](https://snyk.io/test/github/descoped/dynamic-configuration)
 
 The Configuration library is a clean (no external dependencies) Java implementation inspired by and partly based on work
 found in the Constretto library: https://github.com/constretto/constretto-core
