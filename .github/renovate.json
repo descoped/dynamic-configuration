@@ -1,9 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base",
+    "config:recommended",
     ":dependencyDashboard",
-    "github>whitesource/merge-confidence:beta"
+    "mergeConfidence:all-badges"
   ],
   "packageRules": [
     {
@@ -25,24 +25,24 @@
       "automerge": true
     },
     {
-      "excludePackageNames": [
-        "javax.xml.bind:jaxb-api"
-      ],
-      "exclude": true
+      "exclude": true,
+      "matchPackageNames": [
+        "!javax.xml.bind:jaxb-api"
+      ]
     },
     {
-      "excludePackageNames": [
-        "com.sun.xml.bind:jaxb-core",
-        "com.sun.xml.bind:jaxb-impl"
-      ],
-      "exclude": true
+      "exclude": true,
+      "matchPackageNames": [
+        "!com.sun.xml.bind:jaxb-core",
+        "!com.sun.xml.bind:jaxb-impl"
+      ]
     },
     {
-      "matchSourceUrlPrefixes": [
-        "https://github.com/junit-team/junit5"
-      ],
       "groupName": "junit5 monorepo",
-      "automerge": true
+      "automerge": true,
+      "matchSourceUrls": [
+        "https://github.com/junit-team/junit5{/,}**"
+      ]
     }
   ],
   "vulnerabilityAlerts": {
@@ -56,7 +56,9 @@
     "automerge": true
   },
   "rangeStrategy": "auto",
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "github-actions": {
     "enabled": true,
     "automerge": true
