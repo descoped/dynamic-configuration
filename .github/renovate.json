@@ -12,6 +12,16 @@
         "github-actions"
       ],
       "automerge": true
+    },
+    {
+      "description": "JDK versions in the workflows are deliberate: the CI matrix pins every LTS from the Java 17 baseline plus the newest release, and `respond` builds on the baseline. They are changed by hand, never bumped.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepNames": [
+        "java-jdk"
+      ],
+      "enabled": false
     }
   ],
   "vulnerabilityAlerts": {
