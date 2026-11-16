@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,6 +75,47 @@ class RecordBindingTest {
         assertEquals(Optional.of("/api"), server.contextPath());
         assertEquals(Optional.of(new Pool(2, Duration.ofSeconds(2))), server.backup());
         assertEquals(List.of(), server.tags());
+    }
+
+    @Test
+    void partlyConfiguredOptionalRecordIsReportedNotNullPointer() {
+        DynamicConfiguration config = DynamicConfiguration.builder()
+                .values(Map.of("size", "2", "idle-timeout", "1s", "backup.size", "2"))
+                .build();
+
+        ConfigurationException e = assertThrows(ConfigurationException.class, () -> config.bind("", Holder.class));
+        assertTrue(e.getMessage().contains("missing key 'backup.idle-timeout'"), e.getMessage());
+    }
+
+    public record Holder(int size, Duration idleTimeout, Optional<Pool> backup) {
+    }
+
+    @Test
+    void causeIsKeptForPlainValuesOnly() {
+        ConfigurationException plain = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
+                .values(Map.of("size", "x", "idle-timeout", "1s")).build().bind("", Pool.class));
+        assertInstanceOf(NumberFormatException.class, plain.getCause());
+
+        ConfigurationException secret = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
+                .values(Map.of("size", "s3cr3t", "idle-timeout", "1s")).secret("size").build().bind("", Pool.class));
+        assertNull(secret.getCause());
+        assertFalse(ReadingTest.stackTrace(secret).contains("s3cr3t"));
+    }
+
+    public record Validated(String name) {
+        public Validated {
+            if (name.isBlank()) {
+                throw new IllegalArgumentException("name is blank: '" + name + "'");
+            }
+        }
+    }
+
+    @Test
+    void constructorFailureNamesTheTypeOnly() {
+        ConfigurationException e = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
+                .value("name", " ").build().bind("", Validated.class));
+        assertTrue(e.getMessage().contains("threw java.lang.IllegalArgumentException"), e.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, e.getCause());
     }
 
     @Test

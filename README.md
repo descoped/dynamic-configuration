@@ -44,7 +44,8 @@ module com.acme.app {
 server.host=0.0.0.0
 server.port=8080
 server.idle-timeout=30s
-db.url=jdbc:postgresql://${db.host:localhost}/app
+db.host=localhost
+db.url=jdbc:postgresql://${db.host}/app
 db.password=
 ```
 
@@ -53,7 +54,7 @@ DynamicConfiguration config = DynamicConfiguration.builder()
         .classpath("application.properties")             // + application-<profile>.properties
         .file(Path.of("local_override.properties"))       // optional
         .directory(Path.of("/run/secrets"))               // optional, one file per key
-        .environment()                                    // SERVER_PORT=9090 overrides server.port
+        .environment()                                    // SERVER_PORT=9090, DB_HOST=db override declared keys
         .systemProperties()                               // -Dserver.port=9090 overrides server.port
         .build();
 
@@ -80,7 +81,9 @@ Sources are applied in the order you add them; a later source wins.
 | `values(map)` / `value(key, value)` | Values from code | |
 | `source(ConfigurationSource)` | Your own source: YAML, JSON, a vault, ... | |
 
-All properties are read as UTF-8 and keep their file order.
+All properties are read as UTF-8 and keep their file order. A file that is not valid UTF-8, or has a malformed
+`\uXXXX` escape, fails `build()` with an error naming the file; nothing is replaced silently. (2.x files in
+ISO-8859-1 must be converted to UTF-8.)
 
 **Modules.** Resource lookup in named modules is caller-sensitive. `classpath(name)` sees resources outside packages
 (such as `application.properties` at the root of your jar) and in open packages. For a resource inside one of your own
@@ -91,8 +94,12 @@ encapsulated packages, look it up yourself and pass the URL: `resource(App.class
 
 For key `k` the first variable that exists is used: `k`; `k` with every non-alphanumeric character replaced by `_`;
 the same in upper case. With `environment("MYAPP_")` the prefix goes in front of each name. Environment variables and
-system properties never add keys, so only what you declared is configurable. If two keys map to the same variable
-(`a.b` and `a-b`) and it is set, `build()` fails.
+system properties never add keys, so only what you declared is configurable: to let `DB_HOST` set the host, declare
+`db.host` in a file. If two keys map to the same variable (`a.b` and `a-b`) and it is set, `build()` fails.
+
+Without a prefix, every variable a container already has can override a key of the same name: a key `home`, `user`,
+`path` or `lang` is overridden by `HOME`, `USER`, `PATH` or `LANG`. Prefer a prefix, `environment("MYAPP_")`, unless
+your keys are all namespaced (`server.port`, `db.url`).
 
 ### Profiles
 
@@ -104,7 +111,12 @@ them off explicitly.
 ### References
 
 `${key}` and `${key:default}` are resolved once, against the final layered values; defaults may nest. `$${` is a
-literal `${`. A missing reference without a default, or a cycle, fails `build()` and lists every problem.
+literal `${`. A missing reference without a default, or a cycle, fails `build()` and lists every problem with the key
+and its source.
+
+Values from secret sources (`directory(..)`, and a `ConfigurationSource` whose `secret()` is true) are taken
+literally: a generated password containing `${` is never parsed. Other values can still reference them,
+`dsn=user:${db.password}`, and become secret themselves.
 
 ## Reading
 
@@ -129,6 +141,8 @@ throws, even with a default: defaults cover *missing*, never *wrong*.
 - `sourceOf(key)` tells where a value came from: `env SERVER_PORT`, `file /app/local_override.properties`,
   `classpath jar:file:/app/app.jar!/application.properties`.
 - `describe()` (and `toString()`) lists every key, value and source, with secrets shown as `****`.
+- Errors never quote a secret: a malformed secret is reported with the key, its source and the exception type only,
+  with no cause attached, because parser messages (`For input string: "..."`) repeat their input.
 - Secret keys: everything from `directory(..)`; keys whose last segment contains `password`, `passwd`, `secret`,
   `token`, `credential`, `private-key` or `api-key`; keys passed to `builder.secret(..)`; and any value that
   references a secret.

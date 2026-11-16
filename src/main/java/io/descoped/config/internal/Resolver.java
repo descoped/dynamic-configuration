@@ -168,8 +168,8 @@ public final class Resolver {
         } catch (java.io.FileNotFoundException | NoSuchFileException e) {
             LOG.debug("Optional source not found: {}", source);
             return Map.of();
-        } catch (IOException e) {
-            throw new ConfigurationException("Cannot read " + source, e);
+        } catch (IOException | IllegalArgumentException e) {
+            throw cannotRead(source, e);
         }
     }
 
@@ -185,8 +185,8 @@ public final class Resolver {
         }
         try (InputStream in = Files.newInputStream(absolute)) {
             return withSource(PropertiesReader.read(in), source, false);
-        } catch (IOException e) {
-            throw new ConfigurationException("Cannot read " + source, e);
+        } catch (IOException | IllegalArgumentException e) {
+            throw cannotRead(source, e);
         }
     }
 
@@ -197,17 +197,24 @@ public final class Resolver {
             return Map.of();
         }
         Map<String, Value> values = new LinkedHashMap<>();
+        List<Path> files;
         try (Stream<Path> entries = Files.list(directory)) {
-            for (Path file : entries.sorted().toList()) {
-                String key = file.getFileName().toString();
-                if (key.startsWith(".") || !Files.isRegularFile(file)) {
-                    continue; // hidden files, and Kubernetes' ..data / ..<timestamp> directories
-                }
-                String text = Files.readString(file, StandardCharsets.UTF_8);
-                values.put(key, new Value(stripOneLineBreak(text), "secret file " + directory.resolve(key), true));
-            }
+            files = entries.sorted().toList();
         } catch (IOException e) {
-            throw new ConfigurationException("Cannot read secret directory " + directory, e);
+            throw cannotRead("secret directory " + directory, e);
+        }
+        for (Path file : files) {
+            String key = file.getFileName().toString();
+            if (key.startsWith(".") || !Files.isRegularFile(file)) {
+                continue; // hidden files, and Kubernetes' ..data / ..<timestamp> directories
+            }
+            String source = "secret file " + directory.resolve(key);
+            try {
+                String text = Files.readString(file, StandardCharsets.UTF_8);
+                values.put(key, new Value(stripOneLineBreak(text), source, true, true));
+            } catch (IOException e) {
+                throw cannotRead(source, e);
+            }
         }
         LOG.debug("Loaded {} key(s) from secret directory {}", values.size(), directory);
         return values;
@@ -224,10 +231,24 @@ public final class Resolver {
             if (key == null || text == null) {
                 throw new ConfigurationException("Source '" + name + "' returned a null key or a null value for key '" + key + "'");
             }
-            values.put(key, new Value(text, name, source.secret()));
+            values.put(key, new Value(text, name, source.secret(), source.secret()));
         });
         LOG.debug("Loaded {} key(s) from {}", values.size(), name);
         return values;
+    }
+
+    /**
+     * A failure to read a source, naming it. The cause is kept for I/O errors only: a parse error's message can quote
+     * the content, which may be a secret.
+     */
+    private static ConfigurationException cannotRead(String source, Exception e) {
+        if (e instanceof java.nio.charset.CharacterCodingException) {
+            return new ConfigurationException("Cannot read " + source + ": not valid UTF-8");
+        }
+        if (e instanceof IllegalArgumentException) {
+            return new ConfigurationException("Cannot read " + source + ": malformed properties (" + e.getMessage() + ")");
+        }
+        return new ConfigurationException("Cannot read " + source, e);
     }
 
     private static Map<String, Value> withSource(Map<String, String> entries, String source, boolean secret) {

@@ -4,12 +4,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/** Reads {@code .properties} content as UTF-8, keeping the order of the keys in the file. */
+/**
+ * Reads {@code .properties} content as UTF-8, keeping the order of the keys in the file. Malformed UTF-8 fails with a
+ * {@link java.nio.charset.CharacterCodingException} instead of being replaced silently.
+ */
 final class PropertiesReader {
 
     private PropertiesReader() {
@@ -17,7 +21,9 @@ final class PropertiesReader {
 
     static Map<String, String> read(InputStream in) throws IOException {
         Map<String, String> entries = new LinkedHashMap<>();
-        try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+        try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT))) {
             new OrderRecordingProperties(entries).load(reader);
         }
         return entries;

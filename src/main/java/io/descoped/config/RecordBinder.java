@@ -25,6 +25,8 @@ final class RecordBinder {
 
     private final Snapshot config;
     private final List<String> problems = new ArrayList<>();
+    private Throwable firstCause;
+    private boolean secretInvolved;
 
     private RecordBinder(Snapshot config) {
         this.config = config;
@@ -35,8 +37,13 @@ final class RecordBinder {
         RecordBinder binder = new RecordBinder(config);
         Object result = binder.bindRecord(prefix, type);
         if (!binder.problems.isEmpty()) {
-            throw new ConfigurationException("Cannot bind " + type.getName()
-                    + (prefix.isEmpty() ? "" : " from '" + prefix + "'") + ": " + String.join("; ", binder.problems));
+            String message = "Cannot bind " + type.getName()
+                    + (prefix.isEmpty() ? "" : " from '" + prefix + "'") + ": " + String.join("; ", binder.problems);
+            // The first underlying failure is kept as the cause, unless a secret is involved: its message could
+            // quote the value.
+            throw binder.firstCause == null || binder.secretInvolved
+                    ? new ConfigurationException(message)
+                    : new ConfigurationException(message, binder.firstCause);
         }
         return type.cast(result);
     }
@@ -69,7 +76,8 @@ final class RecordBinder {
             Class<?> innerRaw = rawClass(inner);
             if (innerRaw != null && innerRaw.isRecord()) {
                 String sub = childPrefix(prefix, name);
-                return config.hasKeysUnder(sub) ? Optional.of(bindRecord(sub, innerRaw)) : Optional.empty();
+                // bindRecord returns null when it recorded problems; bind() then throws with all of them.
+                return config.hasKeysUnder(sub) ? Optional.ofNullable(bindRecord(sub, innerRaw)) : Optional.empty();
             }
             String key = childKey(prefix, name);
             Value value = config.value(key);
@@ -99,6 +107,7 @@ final class RecordBinder {
         } catch (RuntimeException e) {
             problems.add("key '" + key + "' from " + value.source() + " is not a valid "
                     + raw.getSimpleName() + ": '" + value.display() + "'");
+            keepCause(e, value.secret());
             return null;
         }
     }
@@ -136,11 +145,22 @@ final class RecordBinder {
         } catch (IllegalAccessException e) {
             problems.add(accessHint(type));
         } catch (InvocationTargetException e) {
-            problems.add("the constructor of " + type.getName() + " threw " + e.getCause());
+            // A constructor's own exception can quote the arguments it was given, so only its type goes in the
+            // message; the exception itself becomes the cause when no secret is bound.
+            problems.add("the constructor of " + type.getName() + " threw " + e.getCause().getClass().getName());
+            // Conservative: any configured secret may have been passed to the constructor.
+            keepCause(e.getCause(), config.anySecret());
         } catch (NoSuchMethodException | InstantiationException e) {
             problems.add("cannot construct " + type.getName() + ": " + e);
         }
         return null;
+    }
+
+    private void keepCause(Throwable cause, boolean secret) {
+        secretInvolved |= secret;
+        if (firstCause == null) {
+            firstCause = cause;
+        }
     }
 
     private static String accessHint(Class<?> type) {

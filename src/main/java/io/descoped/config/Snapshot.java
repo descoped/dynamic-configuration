@@ -165,9 +165,14 @@ final class Snapshot implements DynamicConfiguration {
         try {
             return parser.apply(value.text());
         } catch (RuntimeException e) {
-            throw new ConfigurationException("Configuration key '" + key + "' from " + value.source()
-                    + " is not a valid " + type + ": '" + value.display() + "'"
-                    + (e.getMessage() == null || value.secret() ? "" : " (" + e.getMessage() + ")"), e);
+            String message = "Configuration key '" + key + "' from " + value.source()
+                    + " is not a valid " + type + ": '" + value.display() + "'";
+            if (value.secret()) {
+                // Parser messages quote their input (NumberFormatException: For input string: "..."), so a secret
+                // gets neither the message nor the cause, only the exception type.
+                throw new ConfigurationException(message + " (" + e.getClass().getName() + ")");
+            }
+            throw new ConfigurationException(e.getMessage() == null ? message : message + " (" + e.getMessage() + ")", e);
         }
     }
 
@@ -206,6 +211,10 @@ final class Snapshot implements DynamicConfiguration {
     /** The resolved value of a key, with provenance; {@code null} if missing. For {@link RecordBinder}. */
     Value value(String key) {
         return values.get(key);
+    }
+
+    boolean anySecret() {
+        return values.values().stream().anyMatch(Value::secret);
     }
 
     boolean hasKeysUnder(String prefix) {

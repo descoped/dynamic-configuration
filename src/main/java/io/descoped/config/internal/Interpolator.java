@@ -12,8 +12,9 @@ import java.util.Set;
 
 /**
  * Resolves {@code ${key}} and {@code ${key:default}} references between values. {@code $${} is a literal
- * {@code ${}. Defaults may contain references. A value that uses a secret becomes secret. Missing references
- * without a default and cycles are collected and reported together.
+ * {@code ${}. Defaults may contain references. A value that uses a secret becomes secret. Literal values (from secret
+ * sources) are taken as they are. Missing references without a default and cycles are collected and reported
+ * together, each naming the key and its source.
  */
 final class Interpolator {
 
@@ -47,11 +48,15 @@ final class Interpolator {
         if (chain.contains(key)) {
             List<String> cycle = new ArrayList<>(chain);
             cycle.subList(0, cycle.indexOf(key)).clear();
+            List<String> sources = new ArrayList<>();
+            for (String member : cycle) {
+                sources.add(member + " from " + raw.get(member).source());
+            }
             cycle.add(key);
-            errors.add("reference cycle " + String.join(" -> ", cycle));
+            errors.add("reference cycle " + String.join(" -> ", cycle) + " (" + String.join(", ", sources) + ")");
             return value;
         }
-        if (value.text().indexOf('$') < 0) {
+        if (value.literal() || value.text().indexOf('$') < 0) {
             resolved.put(key, value);
             return value;
         }
@@ -77,7 +82,7 @@ final class Interpolator {
             } else if (text.startsWith("${", i)) {
                 int end = closingBrace(text, i + 2);
                 if (end < 0) {
-                    errors.add("'" + owner + "' has an unterminated reference");
+                    errors.add(describe(owner) + " has an unterminated reference");
                     out.append(text, i, text.length());
                     break;
                 }
@@ -93,7 +98,7 @@ final class Interpolator {
                     out.append(fallback.text);
                     secret |= fallback.secret;
                 } else {
-                    errors.add("'" + owner + "' references missing key '" + name + "'");
+                    errors.add(describe(owner) + " references missing key '" + name + "'");
                     out.append(text, i, end + 1);
                 }
                 i = end + 1;
@@ -102,6 +107,10 @@ final class Interpolator {
             }
         }
         return new Expansion(out.toString(), secret);
+    }
+
+    private String describe(String key) {
+        return "'" + key + "' from " + raw.get(key).source();
     }
 
     /** Index of the {@code }} closing a reference whose body starts at {@code from}, or -1. */

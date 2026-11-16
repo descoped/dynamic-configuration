@@ -27,7 +27,8 @@ public interface ConfigurationSource {
     Map<String, String> load();
 
     /**
-     * Whether every value of this source is a secret, to be masked in diagnostics.
+     * Whether every value of this source is a secret: masked in diagnostics, and taken literally ({@code ${..}} in
+     * it is not resolved), since secret content such as a generated password is not configuration syntax.
      *
      * @return {@code true} if all values are secret; {@code false} by default
      */

@@ -23,8 +23,10 @@ configuration library for Java services. Owned by Descoped; designed here, after
 - **Overrides never add keys.** Environment variables (MicroProfile Config name mapping) and system properties only
   override keys other sources define.
 - **Secrets.** No configuration value is ever logged, at any level. Secret values are masked as `****` in
-  `describe()`, `toString()` and exception messages.
-- **Errors name the key and its source.** A default covers a missing value, never a malformed one.
+  `describe()`, `toString()` and exception messages, and never reach an exception's cause chain (parser messages quote
+  their input). Values from secret sources are taken literally, never interpolated.
+- **Errors name the key and its source**, including reference errors and unreadable files (malformed UTF-8 or
+  escapes fail, never replaced silently). A default covers a missing value, never a malformed one.
 - `DynamicConfiguration` is sealed; its only implementation is the package-private `Snapshot` in the same package
   (a sealed type on the class path requires its permitted subclasses in the same package).
 - **Publishing.** Every merge to `master` publishes a SNAPSHOT to the Central Portal snapshot repository (`ci.yml`,

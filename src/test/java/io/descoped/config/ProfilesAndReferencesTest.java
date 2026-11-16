@@ -134,8 +134,8 @@ class ProfilesAndReferencesTest {
                 .values(Map.of("a", "${x}", "b", "${y}"))
                 .build());
 
-        assertTrue(e.getMessage().contains("'a' references missing key 'x'"), e.getMessage());
-        assertTrue(e.getMessage().contains("'b' references missing key 'y'"), e.getMessage());
+        assertTrue(e.getMessage().contains("'a' from values references missing key 'x'"), e.getMessage());
+        assertTrue(e.getMessage().contains("'b' from values references missing key 'y'"), e.getMessage());
     }
 
     @Test
@@ -145,12 +145,46 @@ class ProfilesAndReferencesTest {
                 .build());
 
         assertTrue(e.getMessage().contains("reference cycle"), e.getMessage());
+        assertTrue(e.getMessage().contains("a from values"), e.getMessage());
     }
 
     @Test
     void unterminatedReferenceFails() {
-        assertThrows(ConfigurationException.class,
+        ConfigurationException e = assertThrows(ConfigurationException.class,
                 () -> DynamicConfiguration.builder().value("a", "${b").build());
+        assertTrue(e.getMessage().contains("'a' from values has an unterminated reference"), e.getMessage());
+    }
+
+    @Test
+    void secretSourcesAreTakenLiterally() throws IOException {
+        Path secrets = Files.createDirectories(dir.resolve("secrets"));
+        Files.writeString(secrets.resolve("db.password"), "p${w}d");
+        ConfigurationSource vault = new ConfigurationSource() {
+            @Override
+            public String name() {
+                return "vault";
+            }
+
+            @Override
+            public Map<String, String> load() {
+                return Map.of("api.key", "k${");
+            }
+
+            @Override
+            public boolean secret() {
+                return true;
+            }
+        };
+
+        DynamicConfiguration config = DynamicConfiguration.builder()
+                .directory(secrets)
+                .source(vault)
+                .value("dsn", "user:${db.password}")
+                .build();
+
+        assertEquals("p${w}d", config.get("db.password"));
+        assertEquals("k${", config.get("api.key"));
+        assertEquals("user:p${w}d", config.get("dsn"), "a reference to a literal value inserts it as is");
     }
 
     @Test

@@ -310,7 +310,7 @@ public sealed interface DynamicConfiguration permits Snapshot {
         }
 
         /**
-         * Adds a properties resource from the class path, read as UTF-8. Only the first match on the class path is
+         * Adds a properties resource from the class path, read as UTF-8 (malformed UTF-8 fails the build). Only the first match on the class path is
          * read. The thread context class loader is used, falling back to the library's own loader. A missing
          * resource is skipped.
          *
@@ -366,7 +366,8 @@ public sealed interface DynamicConfiguration permits Snapshot {
         /**
          * Adds a directory of secret files, as mounted by Kubernetes secret volumes and Docker secrets: each regular,
          * non-hidden file is one key (its name) and its content is the value, with one trailing line break removed.
-         * Every value from this source is secret. A missing directory is skipped.
+         * Every value from this source is secret and taken literally: {@code ${..}} in it is not resolved. A missing
+         * directory is skipped.
          *
          * @param path the directory
          * @return this builder

@@ -2,6 +2,9 @@ package io.descoped.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -14,8 +17,10 @@ import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -102,10 +107,28 @@ class ReadingTest {
     }
 
     @Test
-    void malformedSecretIsNotShown() {
+    void malformedSecretIsNotShownInMessageOrCause() {
         DynamicConfiguration secret = DynamicConfiguration.builder().value("api.token", "not-a-number").build();
         ConfigurationException e = assertThrows(ConfigurationException.class, () -> secret.getInt("api.token"));
-        assertFalse(e.getMessage().contains("not-a-number"), e.getMessage());
+        assertFalse(stackTrace(e).contains("not-a-number"), stackTrace(e));
+        assertNull(e.getCause(), "a parser's exception quotes its input, so a secret gets no cause");
+        assertTrue(e.getMessage().contains("NumberFormatException"), e.getMessage());
+
+        ConfigurationException uri = assertThrows(ConfigurationException.class,
+                () -> secret.get("api.token", text -> URI.create("bad uri " + text)));
+        assertFalse(stackTrace(uri).contains("not-a-number"));
+    }
+
+    @Test
+    void malformedPlainValueKeepsItsCause() {
+        ConfigurationException e = assertThrows(ConfigurationException.class, () -> config.getInt("double"));
+        assertInstanceOf(NumberFormatException.class, e.getCause());
+    }
+
+    static String stackTrace(Throwable t) {
+        StringWriter out = new StringWriter();
+        t.printStackTrace(new PrintWriter(out));
+        return out.toString();
     }
 
     @Test

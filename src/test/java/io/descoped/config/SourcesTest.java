@@ -108,6 +108,23 @@ class SourcesTest {
     }
 
     @Test
+    void malformedPropertiesNameTheFile() throws IOException {
+        Path file = write("broken.properties", "k=\\u12zz\n");
+        ConfigurationException e = assertThrows(ConfigurationException.class,
+                () -> DynamicConfiguration.builder().file(file).build());
+        assertTrue(e.getMessage().contains("broken.properties"), e.getMessage());
+        assertTrue(e.getMessage().contains("malformed properties"), e.getMessage());
+    }
+
+    @Test
+    void invalidUtf8FailsInsteadOfBeingReplaced() throws IOException {
+        Path file = Files.write(dir.resolve("latin1.properties"), "name=\u00e6\u00f8\u00e5\n".getBytes(StandardCharsets.ISO_8859_1));
+        ConfigurationException e = assertThrows(ConfigurationException.class,
+                () -> DynamicConfiguration.builder().file(file).build());
+        assertTrue(e.getMessage().contains("latin1.properties: not valid UTF-8"), e.getMessage());
+    }
+
+    @Test
     void directoryReadsOneKeyPerFileAsSecrets() throws IOException {
         Path secrets = Files.createDirectories(dir.resolve("secrets"));
         Files.writeString(secrets.resolve("db.password"), "s3cr3t\n");
