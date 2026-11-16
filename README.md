@@ -188,4 +188,5 @@ mvn verify                    # tests on the module path
 src/it/consumer/run.sh        # a separate named module uses the jar, on module and class path
 ```
 
-CI builds every pull request on JDK 17, 21, 25 and the newest release.
+CI builds and tests every pull request on JDK 17, the baseline, in one job; every merge to `master` also runs coverage
+and SonarCloud and publishes a SNAPSHOT.

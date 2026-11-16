@@ -6,7 +6,7 @@
   ],
   "packageRules": [
     {
-      "description": "Always the latest stable version; CI on every supported JDK is the gate",
+      "description": "Always the latest stable version; CI on the JDK 17 baseline is the gate",
       "matchManagers": [
         "maven",
         "github-actions"
@@ -14,7 +14,7 @@
       "automerge": true
     },
     {
-      "description": "JDK versions in the workflows are deliberate: the CI matrix pins every LTS from the Java 17 baseline plus the newest release, and `respond` builds on the baseline. They are changed by hand, never bumped.",
+      "description": "JDK versions in the workflows are deliberate: CI and `respond` build on the Java 17 baseline. They are changed by hand, never bumped.",
       "matchManagers": [
         "github-actions"
       ],
