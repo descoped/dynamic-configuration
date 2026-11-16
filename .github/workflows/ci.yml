@@ -85,8 +85,10 @@ jobs:
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
         run: |
           version=$(sed -n 's/^version=//p' target/maven-archiver/pom.properties)
+          # The release plugin pushes its "prepare release" commit (a release version) to master on its own. That
+          # commit is not published here: releases are published by hand. Skip it instead of failing the run.
           case "$version" in
             *-SNAPSHOT) ;;
-            *) echo "::error::master is at $version, not a SNAPSHOT; releases are published by hand"; exit 1 ;;
+            *) echo "::notice::master is at release version $version; releases are published by hand, so no SNAPSHOT"; exit 0 ;;
           esac
           mvn --batch-mode --no-transfer-progress deploy -P central -DskipTests
