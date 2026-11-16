@@ -86,9 +86,19 @@ jobs:
         run: |
           version=$(sed -n 's/^version=//p' target/maven-archiver/pom.properties)
           # The release plugin pushes its "prepare release" commit (a release version) to master on its own. That
-          # commit is not published here: releases are published by hand. Skip it instead of failing the run.
+          # commit is not published here: releases are published by hand, so it is skipped. Any other non-SNAPSHOT
+          # version on master (a hand edit of the POM) still fails, as does a missing version.
+          subject=$(git log -1 --format=%s)
           case "$version" in
+            '')
+              echo "::error::no version in target/maven-archiver/pom.properties"; exit 1 ;;
             *-SNAPSHOT) ;;
-            *) echo "::notice::master is at release version $version; releases are published by hand, so no SNAPSHOT"; exit 0 ;;
+            *)
+              case "$subject" in
+                "[maven-release-plugin] prepare release "*)
+                  echo "::notice::release commit for $version; releases are published by hand, so no SNAPSHOT"; exit 0 ;;
+                *)
+                  echo "::error::master is at $version, not a SNAPSHOT, and this is not a release commit"; exit 1 ;;
+              esac ;;
           esac
           mvn --batch-mode --no-transfer-progress deploy -P central -DskipTests
