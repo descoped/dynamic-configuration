@@ -31,8 +31,8 @@ configuration library for Java services. Owned by Descoped; designed here, after
 - `DynamicConfiguration` is sealed; its only implementation is the package-private `Snapshot` in the same package
   (a sealed type on the class path requires its permitted subclasses in the same package).
 - **Publishing.** Every merge to `master` publishes a SNAPSHOT to the Central Portal snapshot repository (`ci.yml`,
-  step "Publish SNAPSHOT"). Releases go through the Central Portal (profiles `central,sign`), only with the owner's approval;
-  CI never publishes a release.
+  step "Publish SNAPSHOT"). Releases go through the Central Portal (profiles `central,sign`), only with the owner's
+  approval; CI never publishes a release.
 - **No AI attribution** in commit messages or pull requests.
 
 ## Commands
@@ -43,7 +43,8 @@ mvn verify javadoc:javadoc       # plus Javadoc with doclint, warnings fail the 
 src/it/consumer/run.sh           # after package: a separate named module uses the jar, module path and class path
 mvn verify -P coverage           # JaCoCo report in target/site/jacoco
 mvn install                      # 3.0.0-SNAPSHOT into ~/.m2 for local consumers
-mvn deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand (token from ~/.mavenrc)
+mvn deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand
+                                 # (the token comes from ~/.mavenrc)
 ```
 
 Tests run with slf4j-simple at DEBUG writing to `target/test-slf4j.log`; `SecretsTest` asserts no value reaches it.

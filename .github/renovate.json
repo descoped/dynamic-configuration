@@ -6,7 +6,7 @@
   ],
   "packageRules": [
     {
-      "description": "Always the latest stable version; CI on every supported JDK is the gate",
+      "description": "Always the latest stable version; CI on the JDK 17 baseline is the gate",
       "matchManagers": [
         "maven",
         "github-actions"

@@ -2,7 +2,8 @@ name: CI
 
 # One job on JDK 17, the baseline: every build compiles with `release 17`, so the bytecode does not depend on the
 # JDK, and 17 is the oldest runtime users have. Pull requests: build, tests, Javadoc and the JPMS consumer smoke test.
-# Pushes to master and release tags add coverage and the SonarCloud analysis; master then publishes a SNAPSHOT.
+# Pushes to master and release tags add coverage and the SonarCloud analysis (not gating); master then publishes a
+# SNAPSHOT.
 on:
   push:
     branches: [master]
@@ -60,11 +61,17 @@ jobs:
         if: github.event_name != 'push'
         run: mvn --batch-mode --no-transfer-progress verify javadoc:javadoc
 
-      - name: Build, test, Javadoc, coverage and SonarCloud
+      - name: Build, test, Javadoc and coverage
         if: github.event_name == 'push'
+        run: mvn --batch-mode --no-transfer-progress verify javadoc:javadoc -P coverage
+
+      # Analysis only: a SonarCloud outage or token problem must not stop the SNAPSHOT, so this step does not gate.
+      - name: SonarCloud
+        if: github.event_name == 'push'
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
-        run: mvn --batch-mode --no-transfer-progress verify javadoc:javadoc -P coverage,sonar
+        run: mvn --batch-mode --no-transfer-progress -P sonar org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
 
       - name: JPMS consumer smoke test
         run: src/it/consumer/run.sh
