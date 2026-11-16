@@ -10,7 +10,8 @@ configuration library for Java services. Owned by Descoped; designed here, after
 
 ## Invariants (never violate)
 
-- **Java 17 baseline** (`maven.compiler.release` 17), tested on every LTS from 17 up plus the newest JDK.
+- **Java 17 baseline** (`maven.compiler.release` 17): every class file is Java 17 whatever JDK builds it. CI builds
+  and tests on JDK 17 only, in one job (`ci.yml`); newer JDKs run the same bytecode.
 - **JPMS first.** Exported: `io.descoped.config` only (`DynamicConfiguration` with its `Builder`,
   `ConfigurationSource`, `ConfigurationException`). Everything else lives in `io.descoped.config.internal`, which is
   never exported. No deep reflection; users never need `opens`. Record binding uses public reflection only.
@@ -30,7 +31,7 @@ configuration library for Java services. Owned by Descoped; designed here, after
 - `DynamicConfiguration` is sealed; its only implementation is the package-private `Snapshot` in the same package
   (a sealed type on the class path requires its permitted subclasses in the same package).
 - **Publishing.** Every merge to `master` publishes a SNAPSHOT to the Central Portal snapshot repository (`ci.yml`,
-  job `snapshot`). Releases go through the Central Portal (profiles `central,sign`), only with the owner's approval;
+  step "Publish SNAPSHOT"). Releases go through the Central Portal (profiles `central,sign`), only with the owner's approval;
   CI never publishes a release.
 - **No AI attribution** in commit messages or pull requests.
 

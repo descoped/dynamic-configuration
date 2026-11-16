@@ -1,7 +1,8 @@
 name: CI
 
-# Build and test on every supported JDK, then the JPMS consumer smoke test. On master and on release tags, also
-# coverage and the SonarCloud analysis.
+# One job on JDK 17, the baseline: every build compiles with `release 17`, so the bytecode does not depend on the
+# JDK, and 17 is the oldest runtime users have. Pull requests: build, tests, Javadoc and the JPMS consumer smoke test.
+# Pushes to master and release tags add coverage and the SonarCloud analysis; master then publishes a SNAPSHOT.
 on:
   push:
     branches: [master]
@@ -28,95 +29,57 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same pull request or branch ends the run it replaces.
+# A newer push to the same pull request or branch ends the run it replaces, except on master, where a run may be
+# publishing a SNAPSHOT: there a newer merge waits instead of cancelling an upload half way.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   build:
-    name: JDK ${{ matrix.java }}
+    name: Build (JDK 17)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        # Every LTS from the baseline up, plus the newest feature release.
-        java: ['17', '21', '25', '27']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          # SonarCloud needs the history to attribute new code.
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
           persist-credentials: false
 
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880  # v6.3.0
         with:
-          java-version: ${{ matrix.java }}
-          distribution: temurin
-          cache: maven
-
-      - name: Build, test and Javadoc
-        run: mvn --batch-mode --no-transfer-progress verify javadoc:javadoc
-
-      - name: JPMS consumer smoke test
-        run: src/it/consumer/run.sh
-
-  # Every change merged to master is published as a SNAPSHOT to the Central Portal snapshot repository
-  # (https://central.sonatype.com/repository/maven-snapshots/), so other projects can build against it.
-  snapshot:
-    name: Publish SNAPSHOT
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # One publish at a time; a newer merge waits instead of cancelling an upload half way.
-    concurrency:
-      group: snapshot-publish
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880  # v6.3.0
-        with:
-          java-version: '25'
+          java-version: '17'
           distribution: temurin
           cache: maven
           server-id: central
           server-username: CENTRAL_TOKEN_USER
           server-password: CENTRAL_TOKEN_PASSWORD
 
-      - name: Deploy SNAPSHOT
+      - name: Build, test and Javadoc
+        if: github.event_name != 'push'
+        run: mvn --batch-mode --no-transfer-progress verify javadoc:javadoc
+
+      - name: Build, test, Javadoc, coverage and SonarCloud
+        if: github.event_name == 'push'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+        run: mvn --batch-mode --no-transfer-progress verify javadoc:javadoc -P coverage,sonar
+
+      - name: JPMS consumer smoke test
+        run: src/it/consumer/run.sh
+
+      # Every change merged to master is published as a SNAPSHOT to the Central Portal snapshot repository
+      # (https://central.sonatype.com/repository/maven-snapshots/). Releases are never published from CI.
+      - name: Publish SNAPSHOT
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         env:
           CENTRAL_TOKEN_USER: ${{ secrets.CENTRAL_TOKEN_USER }}
           CENTRAL_TOKEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
         run: |
-          version=$(mvn --batch-mode --no-transfer-progress help:evaluate -Dexpression=project.version -q -DforceStdout)
+          version=$(sed -n 's/^version=//p' target/maven-archiver/pom.properties)
           case "$version" in
             *-SNAPSHOT) ;;
             *) echo "::error::master is at $version, not a SNAPSHOT; releases are published by hand"; exit 1 ;;
           esac
           mvn --batch-mode --no-transfer-progress deploy -P central -DskipTests
-
-  sonar:
-    name: Coverage and SonarCloud
-    needs: build
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880  # v6.3.0
-        with:
-          java-version: '25'
-          distribution: temurin
-          cache: maven
-
-      - name: Coverage and analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
-        run: mvn --batch-mode --no-transfer-progress verify -P coverage,sonar
