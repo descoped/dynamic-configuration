@@ -101,6 +101,4 @@ jobs:
                   echo "::error::master is at $version, not a SNAPSHOT, and this is not a release commit"; exit 1 ;;
               esac ;;
           esac
-          # Maven 3.10 binds a server's credentials to the hosts it knows for that id, and "central" is also Maven
-          # Central's id, so without this flag no token reaches central.sonatype.com (401).
-          ./mvnw --batch-mode --no-transfer-progress deploy -P central -DskipTests -Dmaven.repository.credentialScope=id
+          ./mvnw --batch-mode --no-transfer-progress deploy -P central -DskipTests

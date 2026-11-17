@@ -57,11 +57,15 @@ Always `./mvnw`, never a system `mvn`, so every build uses the same Maven.
 2. Put its SHA-256 (`shasum -a 256`) in `distributionSha256Sum`.
 3. `./mvnw -v` must print the new version.
 
+`.mvn/maven.config` passes `-Dmaven.repository.credentialScope=id` to every build (CI, by hand, the release
+checkout). Maven 3.10 binds a server's credentials to the hosts it knows for that id, and `central` is also Maven
+Central's id; without the flag no token reaches `central.sonatype.com` and a deploy fails with 401.
+
 ## Reproducible builds
 
 `project.build.outputTimestamp` in the POM makes builds reproducible; the release plugin updates it, never edit it by
 hand. `.gitattributes` keeps every text file LF on any OS, so the sources jar is the same everywhere.
-`./mvnw artifact:check-buildplan -P central,sign` checks the plugins for known reproducibility issues.
+`./mvnw artifact:check-buildplan -P central` checks the plugins for known reproducibility issues.
 
 Tests run with slf4j-simple at DEBUG writing to `target/test-slf4j.log`; `SecretsTest` asserts no value reaches it.
 The environment and system properties are injected in tests through the builder's package-private
