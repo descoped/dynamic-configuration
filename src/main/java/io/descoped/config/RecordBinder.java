@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -112,27 +113,34 @@ final class RecordBinder {
         }
     }
 
+    /** Parsers for the supported scalar component types; enums and {@code List<String>} are handled separately. */
+    private static final Map<Class<?>, Function<String, ?>> SCALARS = Map.ofEntries(
+            Map.entry(String.class, text -> text),
+            Map.entry(int.class, text -> Integer.parseInt(text.trim())),
+            Map.entry(Integer.class, text -> Integer.parseInt(text.trim())),
+            Map.entry(long.class, text -> Long.parseLong(text.trim())),
+            Map.entry(Long.class, text -> Long.parseLong(text.trim())),
+            Map.entry(double.class, text -> Double.parseDouble(text.trim())),
+            Map.entry(Double.class, text -> Double.parseDouble(text.trim())),
+            Map.entry(boolean.class, Parsers::parseBoolean),
+            Map.entry(Boolean.class, Parsers::parseBoolean),
+            Map.entry(Duration.class, Parsers::parseDuration),
+            Map.entry(Path.class, Path::of),
+            Map.entry(URI.class, URI::create));
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static Function<String, ?> parser(Class<?> raw, Type generic) {
-        if (raw == String.class) {
-            return text -> text;
-        } else if (raw == int.class || raw == Integer.class) {
-            return text -> Integer.parseInt(text.trim());
-        } else if (raw == long.class || raw == Long.class) {
-            return text -> Long.parseLong(text.trim());
-        } else if (raw == double.class || raw == Double.class) {
-            return text -> Double.parseDouble(text.trim());
-        } else if (raw == boolean.class || raw == Boolean.class) {
-            return Parsers::parseBoolean;
-        } else if (raw == Duration.class) {
-            return Parsers::parseDuration;
-        } else if (raw == Path.class) {
-            return Path::of;
-        } else if (raw == URI.class) {
-            return URI::create;
-        } else if (raw != null && raw.isEnum()) {
+        if (raw == null) {
+            return null;
+        }
+        Function<String, ?> scalar = SCALARS.get(raw);
+        if (scalar != null) {
+            return scalar;
+        }
+        if (raw.isEnum()) {
             return text -> Parsers.parseEnum(text, (Class) raw);
-        } else if (raw == List.class && typeArgument(generic) == String.class) {
+        }
+        if (raw == List.class && typeArgument(generic) == String.class) {
             return Parsers::parseList;
         }
         return null;

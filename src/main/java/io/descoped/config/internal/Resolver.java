@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -52,32 +53,7 @@ public final class Resolver {
             LOG.debug("Active profiles: {}", profiles);
         }
 
-        // Load every base layer first: override layers need the full set of known keys.
-        List<Map<String, Value>> loaded = new ArrayList<>();
-        Set<String> knownKeys = new LinkedHashSet<>();
-        for (Layer layer : recipe.layers()) {
-            if (layer instanceof Layer.Overriding) {
-                loaded.add(null);
-            } else {
-                Map<String, Value> values = load(layer, profiles);
-                knownKeys.addAll(values.keySet());
-                loaded.add(values);
-            }
-        }
-
-        List<String> problems = new ArrayList<>();
-        Map<String, Value> merged = new LinkedHashMap<>();
-        for (int i = 0; i < recipe.layers().size(); i++) {
-            Layer layer = recipe.layers().get(i);
-            Map<String, Value> values = loaded.get(i) != null ? loaded.get(i) : override((Layer.Overriding) layer, knownKeys, problems);
-            // A key that was secret in any layer stays secret when a later layer overrides it.
-            values.forEach((key, value) -> merged.merge(key, value,
-                    (previous, next) -> previous.secret() ? next.asSecret() : next));
-        }
-        if (!problems.isEmpty()) {
-            throw new ConfigurationException(String.join("; ", problems));
-        }
-
+        Map<String, Value> merged = merge(loadBaseLayers(profiles));
         merged.replaceAll((key, value) ->
                 recipe.secretKeys().contains(key) || Secrets.looksSecret(key) ? value.asSecret() : value);
 
@@ -88,6 +64,39 @@ public final class Resolver {
 
         List<String> sources = recipe.layers().stream().map(Layer::describe).toList();
         return new Resolution(Collections.unmodifiableMap(result.values()), profiles, sources);
+    }
+
+    /**
+     * Loads every base layer, in order; an override layer's slot stays {@code null}. Base layers load first because
+     * override layers need the full set of known keys.
+     */
+    private List<Map<String, Value>> loadBaseLayers(List<String> profiles) {
+        List<Map<String, Value>> loaded = new ArrayList<>();
+        for (Layer layer : recipe.layers()) {
+            loaded.add(layer instanceof Layer.Overriding ? null : load(layer, profiles));
+        }
+        return loaded;
+    }
+
+    /** Merges the layers in order, later wins; override layers are resolved against every key the base layers know. */
+    private Map<String, Value> merge(List<Map<String, Value>> loaded) {
+        Set<String> knownKeys = new LinkedHashSet<>();
+        loaded.stream().filter(Objects::nonNull).forEach(values -> knownKeys.addAll(values.keySet()));
+
+        List<String> problems = new ArrayList<>();
+        Map<String, Value> merged = new LinkedHashMap<>();
+        for (int i = 0; i < recipe.layers().size(); i++) {
+            Map<String, Value> values = loaded.get(i) != null
+                    ? loaded.get(i)
+                    : override((Layer.Overriding) recipe.layers().get(i), knownKeys, problems);
+            // A key that was secret in any layer stays secret when a later layer overrides it.
+            values.forEach((key, value) -> merged.merge(key, value,
+                    (previous, next) -> previous.secret() ? next.asSecret() : next));
+        }
+        if (!problems.isEmpty()) {
+            throw new ConfigurationException(String.join("; ", problems));
+        }
+        return merged;
     }
 
     private List<String> activeProfiles() {
@@ -242,13 +251,14 @@ public final class Resolver {
      * the content, which may be a secret.
      */
     private static ConfigurationException cannotRead(String source, Exception e) {
+        String message = "Cannot read " + source;
         if (e instanceof java.nio.charset.CharacterCodingException) {
-            return new ConfigurationException("Cannot read " + source + ": not valid UTF-8");
+            return new ConfigurationException(message + ": not valid UTF-8");
         }
         if (e instanceof IllegalArgumentException) {
-            return new ConfigurationException("Cannot read " + source + ": malformed properties (" + e.getMessage() + ")");
+            return new ConfigurationException(message + ": malformed properties (" + e.getMessage() + ")");
         }
-        return new ConfigurationException("Cannot read " + source, e);
+        return new ConfigurationException(message, e);
     }
 
     private static Map<String, Value> withSource(Map<String, String> entries, String source, boolean secret) {
@@ -294,35 +304,51 @@ public final class Resolver {
     // ---- override layers --------------------------------------------------------------------------------------
 
     private Map<String, Value> override(Layer.Overriding layer, Set<String> knownKeys, List<String> problems) {
-        Map<String, Value> values = new LinkedHashMap<>();
+        Map<String, Value> values;
         if (layer instanceof Layer.Environment env) {
-            Map<String, String> claimedBy = new HashMap<>();
-            for (String key : knownKeys) {
-                for (String name : EnvironmentNames.candidates(env.prefix(), key)) {
-                    String text = environment.get(name);
-                    if (text == null) {
-                        continue;
-                    }
-                    String other = claimedBy.putIfAbsent(name, key);
-                    if (other != null) {
-                        problems.add("environment variable " + name + " matches both '" + other + "' and '" + key + "'");
-                    } else {
-                        values.put(key, new Value(text, "env " + name, false));
-                    }
-                    break;
-                }
-            }
+            values = environmentOverrides(env.prefix(), knownKeys, problems);
         } else if (layer instanceof Layer.SystemProperties props) {
-            for (String key : knownKeys) {
-                String name = props.prefix() + key;
-                String text = systemProperties.get(name);
-                if (text != null) {
-                    values.put(key, new Value(text, "system property " + name, false));
-                }
+            values = systemPropertyOverrides(props.prefix(), knownKeys);
+        } else {
+            throw new IllegalStateException("Unexpected layer " + layer);
+        }
+        if (!values.isEmpty() && LOG.isDebugEnabled()) {
+            LOG.debug("{} override(s) of {}: {}", values.size(), layer.describe(), values.keySet());
+        }
+        return values;
+    }
+
+    /** For each known key, the first of its candidate names that is set; two keys claiming one variable is an error. */
+    private Map<String, Value> environmentOverrides(String prefix, Set<String> knownKeys, List<String> problems) {
+        Map<String, Value> values = new LinkedHashMap<>();
+        Map<String, String> claimedBy = new HashMap<>();
+        for (String key : knownKeys) {
+            String name = firstSetVariable(EnvironmentNames.candidates(prefix, key));
+            if (name == null) {
+                continue;
+            }
+            String other = claimedBy.putIfAbsent(name, key);
+            if (other != null) {
+                problems.add("environment variable " + name + " matches both '" + other + "' and '" + key + "'");
+            } else {
+                values.put(key, new Value(environment.get(name), "env " + name, false));
             }
         }
-        if (!values.isEmpty()) {
-            LOG.debug("{} override(s) of {}: {}", values.size(), layer.describe(), values.keySet());
+        return values;
+    }
+
+    private String firstSetVariable(List<String> names) {
+        return names.stream().filter(environment::containsKey).findFirst().orElse(null);
+    }
+
+    private Map<String, Value> systemPropertyOverrides(String prefix, Set<String> knownKeys) {
+        Map<String, Value> values = new LinkedHashMap<>();
+        for (String key : knownKeys) {
+            String name = prefix + key;
+            String text = systemProperties.get(name);
+            if (text != null) {
+                values.put(key, new Value(text, "system property " + name, false));
+            }
         }
         return values;
     }
