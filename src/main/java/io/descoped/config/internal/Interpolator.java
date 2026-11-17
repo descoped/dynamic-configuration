@@ -84,6 +84,22 @@ final class Interpolator {
             text.append(part);
             secret |= fromSecret;
         }
+
+        void append(CharSequence part) {
+            text.append(part);
+        }
+
+        void append(CharSequence part, int start, int end) {
+            text.append(part, start, end);
+        }
+
+        void append(char c) {
+            text.append(c);
+        }
+
+        Expansion toExpansion() {
+            return new Expansion(text.toString(), secret);
+        }
     }
 
     private Expansion expand(String text, String owner, Deque<String> chain) {
@@ -91,16 +107,16 @@ final class Interpolator {
         int i = 0;
         while (i < text.length()) {
             if (text.startsWith("$${", i)) {
-                out.text.append("${");
+                out.append("${");
                 i += 3;
             } else if (text.startsWith("${", i)) {
                 i = appendReference(text, i, owner, chain, out);
             } else {
-                out.text.append(text.charAt(i));
+                out.append(text.charAt(i));
                 i++;
             }
         }
-        return new Expansion(out.text.toString(), out.secret);
+        return out.toExpansion();
     }
 
     /**
@@ -112,7 +128,7 @@ final class Interpolator {
         int end = closingBrace(text, start + 2);
         if (end < 0) {
             errors.add(describe(owner) + " has an unterminated reference");
-            out.text.append(text, start, text.length());
+            out.append(text, start, text.length());
             return text.length();
         }
         String expression = text.substring(start + 2, end);
@@ -126,7 +142,7 @@ final class Interpolator {
             out.append(fallback.text, fallback.secret);
         } else {
             errors.add(describe(owner) + " references missing key '" + name + "'");
-            out.text.append(text, start, end + 1);
+            out.append(text, start, end + 1);
         }
         return end + 1;
     }
