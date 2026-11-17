@@ -56,7 +56,8 @@
         <tag>HEAD</tag>
     </scm>
 
-    <!-- Snapshots go to the Central Portal snapshot repository; releases go through the Central Portal by
+    <!-- Snapshots go to the Central Portal snapshot repository, by hand and only when the owner asks (CI publishes
+         nothing; the Portal limits publishing per month). Releases go through the Central Portal by
          central-publishing-maven-plugin (profile `central`). Server id `central` holds the Portal user token. -->
     <distributionManagement>
         <snapshotRepository>
@@ -99,7 +100,8 @@
 
     <profiles>
         <!-- Publishing to Maven Central through the Central Portal.
-             Snapshot (no signing needed): ./mvnw deploy -P central,secrets
+             Snapshot (no signing needed; by hand, only when the owner asks, counts against the Portal's monthly
+             limit): ./mvnw deploy -P central,secrets
              Release (Ove approves each one): ./mvnw release:prepare release:perform -P secrets
              (releaseProfiles adds central,sign). A release is uploaded with autoPublish=false and published by hand
              in the Portal. -->
