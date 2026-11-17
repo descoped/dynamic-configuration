@@ -33,19 +33,35 @@ configuration library for Java services. Owned by Descoped; designed here, after
 - **Publishing.** Every merge to `master` publishes a SNAPSHOT to the Central Portal snapshot repository (`ci.yml`,
   step "Publish SNAPSHOT"). Releases go through the Central Portal (profiles `central,sign`), only with the owner's
   approval; CI never publishes a release.
-- **No AI attribution** in commit messages or pull requests.
 
 ## Commands
 
 ```sh
-mvn verify                       # compile with -Xlint:all, tests on the module path (JUnit 6)
-mvn verify javadoc:javadoc       # plus Javadoc with doclint, warnings fail the build
-src/it/consumer/run.sh           # after package: a separate named module uses the jar, module path and class path
-mvn verify -P coverage           # JaCoCo report in target/site/jacoco
-mvn install                      # 3.0.0-SNAPSHOT into ~/.m2 for local consumers
-mvn deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand
-                                 # (the token comes from ~/.mavenrc)
+./mvnw verify                       # compile with -Xlint:all, tests on the module path (JUnit 6)
+./mvnw verify javadoc:javadoc       # plus Javadoc with doclint, warnings fail the build
+src/it/consumer/run.sh              # after package: a separate named module uses the jar, module and class path
+./mvnw verify -P coverage           # JaCoCo report in target/site/jacoco
+./mvnw install                      # the current SNAPSHOT into ~/.m2 for local consumers
+./mvnw deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand
+                                    # (the token comes from ~/.mavenrc)
 ```
+
+Always `./mvnw`, never a system `mvn`, so every build uses the same Maven.
+
+## Maven Wrapper
+
+`.mvn/wrapper/maven-wrapper.properties` pins Maven (script-only wrapper, no jar in the repository) and its
+`distributionSha256Sum`. When Maven is bumped (Renovate opens the PR but does not update the checksum):
+
+1. Download `apache-maven-<version>-bin.zip` and check it against Apache's `.sha512` from downloads.apache.org.
+2. Put its SHA-256 (`shasum -a 256`) in `distributionSha256Sum`.
+3. `./mvnw -v` must print the new version.
+
+## Reproducible builds
+
+`project.build.outputTimestamp` in the POM makes builds reproducible; the release plugin updates it, never edit it by
+hand. `.gitattributes` keeps every text file LF on any OS, so the sources jar is the same everywhere.
+`./mvnw artifact:check-buildplan -P central,sign` checks the plugins for known reproducibility issues.
 
 Tests run with slf4j-simple at DEBUG writing to `target/test-slf4j.log`; `SecretsTest` asserts no value reaches it.
 The environment and system properties are injected in tests through the builder's package-private
