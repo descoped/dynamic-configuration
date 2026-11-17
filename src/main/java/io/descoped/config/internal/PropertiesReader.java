@@ -42,5 +42,16 @@ final class PropertiesReader {
         public synchronized Object put(Object key, Object value) {
             return entries.put((String) key, (String) value);
         }
+
+        // A load sink that holds nothing itself: only identity makes sense, Properties' content equality does not.
+        @Override
+        public synchronized boolean equals(Object other) {
+            return this == other;
+        }
+
+        @Override
+        public synchronized int hashCode() {
+            return System.identityHashCode(this);
+        }
     }
 }

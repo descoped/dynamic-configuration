@@ -130,9 +130,9 @@ class ProfilesAndReferencesTest {
 
     @Test
     void missingReferencesAreAllReported() {
-        ConfigurationException e = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
-                .values(Map.of("a", "${x}", "b", "${y}"))
-                .build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder()
+                .values(Map.of("a", "${x}", "b", "${y}"));
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
 
         assertTrue(e.getMessage().contains("'a' from values references missing key 'x'"), e.getMessage());
         assertTrue(e.getMessage().contains("'b' from values references missing key 'y'"), e.getMessage());
@@ -140,9 +140,9 @@ class ProfilesAndReferencesTest {
 
     @Test
     void cyclesFail() {
-        ConfigurationException e = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
-                .values(Map.of("a", "${b}", "b", "${c}", "c", "${a}"))
-                .build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder()
+                .values(Map.of("a", "${b}", "b", "${c}", "c", "${a}"));
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
 
         assertTrue(e.getMessage().contains("reference cycle"), e.getMessage());
         assertTrue(e.getMessage().contains("a from values"), e.getMessage());
@@ -150,8 +150,8 @@ class ProfilesAndReferencesTest {
 
     @Test
     void unterminatedReferenceFails() {
-        ConfigurationException e = assertThrows(ConfigurationException.class,
-                () -> DynamicConfiguration.builder().value("a", "${b").build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder().value("a", "${b");
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
         assertTrue(e.getMessage().contains("'a' from values has an unterminated reference"), e.getMessage());
     }
 

@@ -49,11 +49,10 @@ class OverridesTest {
 
     @Test
     void environmentMatchingTwoKeysFails() {
-        ConfigurationException e = assertThrows(ConfigurationException.class,
-                () -> base(Map.of("A_B", "x"), Map.of())
-                        .values(Map.of("a.b", "1", "a-b", "2"))
-                        .environment()
-                        .build());
+        DynamicConfiguration.Builder builder = base(Map.of("A_B", "x"), Map.of())
+                .values(Map.of("a.b", "1", "a-b", "2"))
+                .environment();
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
         assertTrue(e.getMessage().contains("A_B"));
         assertTrue(e.getMessage().contains("a.b") && e.getMessage().contains("a-b"));
     }

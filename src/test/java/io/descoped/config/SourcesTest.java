@@ -45,7 +45,8 @@ class SourcesTest {
         DynamicConfiguration config = DynamicConfiguration.builder().file(file).value("a", "4").build();
 
         assertEquals(List.of("z", "y", "x", "a"), List.copyOf(config.asMap().keySet()));
-        assertThrows(UnsupportedOperationException.class, () -> config.asMap().put("k", "v"));
+        Map<String, String> map = config.asMap();
+        assertThrows(UnsupportedOperationException.class, () -> map.put("k", "v"));
     }
 
     @Test
@@ -102,16 +103,17 @@ class SourcesTest {
         assertEquals("æøå", config.get("name"));
         assertEquals("file " + file.toAbsolutePath().normalize(), config.sourceOf("name").orElseThrow());
 
-        ConfigurationException e = assertThrows(ConfigurationException.class,
-                () -> DynamicConfiguration.builder().requiredFile(dir.resolve("missing.properties")).build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder()
+                .requiredFile(dir.resolve("missing.properties"));
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
         assertTrue(e.getMessage().contains("missing.properties"));
     }
 
     @Test
     void malformedPropertiesNameTheFile() throws IOException {
         Path file = write("broken.properties", "k=\\u12zz\n");
-        ConfigurationException e = assertThrows(ConfigurationException.class,
-                () -> DynamicConfiguration.builder().file(file).build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder().file(file);
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
         assertTrue(e.getMessage().contains("broken.properties"), e.getMessage());
         assertTrue(e.getMessage().contains("malformed properties"), e.getMessage());
     }
@@ -119,8 +121,8 @@ class SourcesTest {
     @Test
     void invalidUtf8FailsInsteadOfBeingReplaced() throws IOException {
         Path file = Files.write(dir.resolve("latin1.properties"), "name=\u00e6\u00f8\u00e5\n".getBytes(StandardCharsets.ISO_8859_1));
-        ConfigurationException e = assertThrows(ConfigurationException.class,
-                () -> DynamicConfiguration.builder().file(file).build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder().file(file);
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
         assertTrue(e.getMessage().contains("latin1.properties: not valid UTF-8"), e.getMessage());
     }
 
@@ -166,19 +168,19 @@ class SourcesTest {
     void nullKeysAndValuesAreRejected() {
         Map<String, String> withNullValue = new LinkedHashMap<>();
         withNullValue.put("key", null);
-        NullPointerException e = assertThrows(NullPointerException.class,
-                () -> DynamicConfiguration.builder().values(withNullValue));
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder();
+        NullPointerException e = assertThrows(NullPointerException.class, () -> builder.values(withNullValue));
         assertTrue(e.getMessage().contains("key"));
 
         Map<String, String> withNullKey = new LinkedHashMap<>();
         withNullKey.put(null, "v");
-        assertThrows(NullPointerException.class, () -> DynamicConfiguration.builder().values(withNullKey));
+        assertThrows(NullPointerException.class, () -> builder.values(withNullKey));
     }
 
     @Test
     void customSourceReturningNullFails() {
-        ConfigurationException e = assertThrows(ConfigurationException.class,
-                () -> DynamicConfiguration.builder().source(source("broken", null)).build());
+        DynamicConfiguration.Builder builder = DynamicConfiguration.builder().source(source("broken", null));
+        ConfigurationException e = assertThrows(ConfigurationException.class, builder::build);
         assertTrue(e.getMessage().contains("broken"));
     }
 

@@ -71,42 +71,64 @@ final class Interpolator {
     private record Expansion(String text, boolean secret) {
     }
 
+    /** The text being built, and whether any secret went into it. */
+    private static final class Output {
+        private final StringBuilder text;
+        private boolean secret;
+
+        Output(int capacity) {
+            this.text = new StringBuilder(capacity);
+        }
+
+        void append(String part, boolean fromSecret) {
+            text.append(part);
+            secret |= fromSecret;
+        }
+    }
+
     private Expansion expand(String text, String owner, Deque<String> chain) {
-        StringBuilder out = new StringBuilder(text.length());
-        boolean secret = false;
+        Output out = new Output(text.length());
         int i = 0;
         while (i < text.length()) {
             if (text.startsWith("$${", i)) {
-                out.append("${");
+                out.text.append("${");
                 i += 3;
             } else if (text.startsWith("${", i)) {
-                int end = closingBrace(text, i + 2);
-                if (end < 0) {
-                    errors.add(describe(owner) + " has an unterminated reference");
-                    out.append(text, i, text.length());
-                    break;
-                }
-                String expression = text.substring(i + 2, end);
-                int colon = topLevelColon(expression);
-                String name = colon < 0 ? expression : expression.substring(0, colon);
-                if (raw.containsKey(name)) {
-                    Value referenced = resolveKey(name, chain);
-                    out.append(referenced.text());
-                    secret |= referenced.secret();
-                } else if (colon >= 0) {
-                    Expansion fallback = expand(expression.substring(colon + 1), owner, chain);
-                    out.append(fallback.text);
-                    secret |= fallback.secret;
-                } else {
-                    errors.add(describe(owner) + " references missing key '" + name + "'");
-                    out.append(text, i, end + 1);
-                }
-                i = end + 1;
+                i = appendReference(text, i, owner, chain, out);
             } else {
-                out.append(text.charAt(i++));
+                out.text.append(text.charAt(i));
+                i++;
             }
         }
-        return new Expansion(out.toString(), secret);
+        return new Expansion(out.text.toString(), out.secret);
+    }
+
+    /**
+     * Appends the value of the reference starting at {@code start} (at {@code ${}) and returns the index after it. A
+     * problem is recorded and the reference kept as written when it is unterminated (the rest of the text is taken) or
+     * names a missing key without a default.
+     */
+    private int appendReference(String text, int start, String owner, Deque<String> chain, Output out) {
+        int end = closingBrace(text, start + 2);
+        if (end < 0) {
+            errors.add(describe(owner) + " has an unterminated reference");
+            out.text.append(text, start, text.length());
+            return text.length();
+        }
+        String expression = text.substring(start + 2, end);
+        int colon = topLevelColon(expression);
+        String name = colon < 0 ? expression : expression.substring(0, colon);
+        if (raw.containsKey(name)) {
+            Value referenced = resolveKey(name, chain);
+            out.append(referenced.text(), referenced.secret());
+        } else if (colon >= 0) {
+            Expansion fallback = expand(expression.substring(colon + 1), owner, chain);
+            out.append(fallback.text, fallback.secret);
+        } else {
+            errors.add(describe(owner) + " references missing key '" + name + "'");
+            out.text.append(text, start, end + 1);
+        }
+        return end + 1;
     }
 
     private String describe(String key) {
@@ -116,16 +138,20 @@ final class Interpolator {
     /** Index of the {@code }} closing a reference whose body starts at {@code from}, or -1. */
     private static int closingBrace(String text, int from) {
         int depth = 0;
-        for (int i = from; i < text.length(); i++) {
+        int i = from;
+        while (i < text.length()) {
             if (text.startsWith("${", i)) {
                 depth++;
-                i++;
-            } else if (text.charAt(i) == '}') {
+                i += 2;
+                continue;
+            }
+            if (text.charAt(i) == '}') {
                 if (depth == 0) {
                     return i;
                 }
                 depth--;
             }
+            i++;
         }
         return -1;
     }
@@ -133,15 +159,20 @@ final class Interpolator {
     /** Index of the first {@code :} outside nested references, or -1. */
     private static int topLevelColon(String expression) {
         int depth = 0;
-        for (int i = 0; i < expression.length(); i++) {
+        int i = 0;
+        while (i < expression.length()) {
             if (expression.startsWith("${", i)) {
                 depth++;
-                i++;
-            } else if (expression.charAt(i) == '}') {
+                i += 2;
+                continue;
+            }
+            char c = expression.charAt(i);
+            if (c == '}') {
                 depth--;
-            } else if (expression.charAt(i) == ':' && depth == 0) {
+            } else if (c == ':' && depth == 0) {
                 return i;
             }
+            i++;
         }
         return -1;
     }

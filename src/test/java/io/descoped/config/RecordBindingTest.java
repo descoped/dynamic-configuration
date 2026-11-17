@@ -92,12 +92,15 @@ class RecordBindingTest {
 
     @Test
     void causeIsKeptForPlainValuesOnly() {
-        ConfigurationException plain = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
-                .values(Map.of("size", "x", "idle-timeout", "1s")).build().bind("", Pool.class));
+        DynamicConfiguration malformed = DynamicConfiguration.builder()
+                .values(Map.of("size", "x", "idle-timeout", "1s")).build();
+        ConfigurationException plain = assertThrows(ConfigurationException.class, () -> malformed.bind("", Pool.class));
         assertInstanceOf(NumberFormatException.class, plain.getCause());
 
-        ConfigurationException secret = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
-                .values(Map.of("size", "s3cr3t", "idle-timeout", "1s")).secret("size").build().bind("", Pool.class));
+        DynamicConfiguration malformedSecret = DynamicConfiguration.builder()
+                .values(Map.of("size", "s3cr3t", "idle-timeout", "1s")).secret("size").build();
+        ConfigurationException secret = assertThrows(ConfigurationException.class,
+                () -> malformedSecret.bind("", Pool.class));
         assertNull(secret.getCause());
         assertFalse(ReadingTest.stackTrace(secret).contains("s3cr3t"));
     }
@@ -112,8 +115,8 @@ class RecordBindingTest {
 
     @Test
     void constructorFailureNamesTheTypeOnly() {
-        ConfigurationException e = assertThrows(ConfigurationException.class, () -> DynamicConfiguration.builder()
-                .value("name", " ").build().bind("", Validated.class));
+        DynamicConfiguration config = DynamicConfiguration.builder().value("name", " ").build();
+        ConfigurationException e = assertThrows(ConfigurationException.class, () -> config.bind("", Validated.class));
         assertTrue(e.getMessage().contains("threw java.lang.IllegalArgumentException"), e.getMessage());
         assertInstanceOf(IllegalArgumentException.class, e.getCause());
     }
