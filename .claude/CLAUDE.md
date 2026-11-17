@@ -30,9 +30,9 @@ configuration library for Java services. Owned by Descoped; designed here, after
   escapes fail, never replaced silently). A default covers a missing value, never a malformed one.
 - `DynamicConfiguration` is sealed; its only implementation is the package-private `Snapshot` in the same package
   (a sealed type on the class path requires its permitted subclasses in the same package).
-- **Publishing.** Every merge to `master` publishes a SNAPSHOT to the Central Portal snapshot repository (`ci.yml`,
-  step "Publish SNAPSHOT"). Releases go through the Central Portal (profiles `central,sign`), only with the owner's
-  approval; CI never publishes a release.
+- **Publishing.** CI publishes nothing to Maven Central, not even SNAPSHOTs: the Central Portal limits publishing per
+  month, and releases need it. Releases go through the Central Portal (profiles `central,sign`), by hand and only with
+  the owner's approval.
 
 ## Commands
 
@@ -42,8 +42,8 @@ configuration library for Java services. Owned by Descoped; designed here, after
 src/it/consumer/run.sh              # after package: a separate named module uses the jar, module and class path
 ./mvnw verify -P coverage           # JaCoCo report in target/site/jacoco
 ./mvnw install                      # the current SNAPSHOT into ~/.m2 for local consumers
-./mvnw deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand
-                                    # (the token comes from ~/.mavenrc)
+./mvnw deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand, only when the owner asks
+                                    # (counts against the Portal's monthly limit; token from ~/.mavenrc)
 ```
 
 Always `./mvnw`, never a system `mvn`, so every build uses the same Maven.

@@ -168,17 +168,10 @@ throws, even with a default: defaults cover *missing*, never *wrong*.
 
 ## Snapshots
 
-Every change merged to `master` is published as a SNAPSHOT to the Central Portal snapshot repository. To use one:
+SNAPSHOTs are not published. To try unreleased changes, install `master` into your local repository:
 
-```xml
-<repositories>
-    <repository>
-        <id>central-portal-snapshots</id>
-        <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-        <releases><enabled>false</enabled></releases>
-        <snapshots><enabled>true</enabled></snapshots>
-    </repository>
-</repositories>
+```bash
+git clone https://github.com/descoped/dynamic-configuration && cd dynamic-configuration && ./mvnw install
 ```
 
 ## Building
@@ -206,4 +199,4 @@ Build with the same major JDK as `Build-Jdk-Spec` in the released jar's `META-IN
 `gpg --verify`. Releases before 3.0.1 were not built reproducibly.
 
 CI builds and tests every pull request on JDK 17, the baseline, in one job; every merge to `master` also runs coverage
-and SonarCloud and publishes a SNAPSHOT.
+and SonarCloud. CI publishes nothing; releases are published to Maven Central by hand.
