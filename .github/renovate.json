@@ -14,6 +14,18 @@
       "automerge": true
     },
     {
+      "description": "Renovate updates the Maven version in the wrapper but not distributionSha256Sum",
+      "matchManagers": [
+        "maven-wrapper"
+      ],
+      "labels": [
+        "maven-wrapper"
+      ],
+      "prBodyNotes": [
+        "Update `distributionSha256Sum` in `.mvn/wrapper/maven-wrapper.properties` to the SHA-256 of the new `apache-maven-<version>-bin.zip` (check the zip against Apache's `.sha512` first; see `.claude/CLAUDE.md`, Maven Wrapper). Without it the wrapper refuses the download."
+      ]
+    },
+    {
       "description": "JDK versions in the workflows are deliberate: CI and `respond` build on the Java 17 baseline. They are changed by hand, never bumped.",
       "matchManagers": [
         "github-actions"

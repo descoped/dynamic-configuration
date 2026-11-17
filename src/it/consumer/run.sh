@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # JPMS consumer smoke test: compiles a small named module against the built library jar and runs it on the module
-# path and on the class path. Run after `mvn package`.
+# path and on the class path. Run after `./mvnw package`.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -10,7 +10,7 @@ cd "$root"
 
 version=$(sed -n 's/^version=//p' target/maven-archiver/pom.properties)
 jar="target/dynamic-configuration-$version.jar"
-mvn -q -B -ntp dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=target/it-runtime-path.txt
+./mvnw -q -B -ntp dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=target/it-runtime-path.txt
 deps=$(cat target/it-runtime-path.txt)
 
 rm -rf "$out"

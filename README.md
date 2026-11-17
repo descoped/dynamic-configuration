@@ -184,9 +184,26 @@ Every change merged to `master` is published as a SNAPSHOT to the Central Portal
 ## Building
 
 ```bash
-mvn verify                    # tests on the module path
+./mvnw verify                 # tests on the module path
 src/it/consumer/run.sh        # a separate named module uses the jar, on module and class path
 ```
+
+`./mvnw` is the Maven Wrapper: it downloads the Maven version pinned in `.mvn/wrapper/maven-wrapper.properties` and
+checks it against the SHA-256 recorded there. Java 17 or newer is needed to build.
+
+### Reproducible builds
+
+Builds are reproducible: the same tag gives byte-for-byte the same jar, sources jar and Javadoc jar. To check a
+release against Maven Central:
+
+```bash
+git checkout 3.0.1 && ./mvnw -P central package -DskipTests
+shasum -a 256 target/*.jar
+```
+
+Build with the same major JDK as `Build-Jdk-Spec` in the released jar's `META-INF/MANIFEST.MF`, then compare with the
+`.sha256` files next to each jar on `repo1.maven.org`. The `.asc` signatures cannot be reproduced; check them with
+`gpg --verify`. Releases before 3.0.1 were not built reproducibly.
 
 CI builds and tests every pull request on JDK 17, the baseline, in one job; every merge to `master` also runs coverage
 and SonarCloud and publishes a SNAPSHOT.
