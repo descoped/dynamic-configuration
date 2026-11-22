@@ -4,7 +4,7 @@
 
     <groupId>io.descoped.config</groupId>
     <artifactId>dynamic-configuration</artifactId>
-    <version>3.0.2</version>
+    <version>3.0.3-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Dynamic Configuration</name>
@@ -21,7 +21,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- Reproducible builds: the timestamp in every jar entry and in the manifest. maven-release-plugin sets it to
              the release time in "prepare release" and again for the next development iteration; never edited by hand. -->
-        <project.build.outputTimestamp>2026-11-22T19:26:42Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-11-22T19:26:49Z</project.build.outputTimestamp>
 
         <slf4j.version>2.0.20</slf4j.version>
         <junit.version>6.1.3</junit.version>
@@ -53,7 +53,7 @@
         <connection>scm:git:git://github.com/descoped/dynamic-configuration.git</connection>
         <developerConnection>scm:git:git@github.com:descoped/dynamic-configuration.git</developerConnection>
         <url>https://github.com/descoped/dynamic-configuration/tree/master</url>
-        <tag>3.0.2</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <!-- Snapshots go to the Central Portal snapshot repository, by hand and only when the owner asks (CI publishes
