@@ -28,7 +28,7 @@ module path.
 <dependency>
     <groupId>io.descoped.config</groupId>
     <artifactId>dynamic-configuration</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 </dependency>
 ```
 
@@ -103,8 +103,10 @@ Without a prefix, every variable a container already has can override a key of t
 your keys are all namespaced (`server.port`, `db.url`).
 
 Since a variable never adds a key, a mistyped one (`MYAPP_SERVER_PROT`) is ignored. `strictEnvironment("MYAPP_")`
-reads variables like `environment("MYAPP_")`, and `build()` fails naming every variable with the prefix that matches
-no key (names only, never values). It needs a prefix.
+(since 3.0.2) reads variables like `environment("MYAPP_")`, and `build()` (and `reload()`) fails naming every variable
+with the prefix that matches no key (names only, never values). It needs a prefix, and every variable with that prefix
+counts, so choose one that nothing else reads: `CONFIG_` would catch `CONFIG_PROFILES`, and `APP_` would catch the
+variables of a second `environment("APP_DB_")`.
 
 ### Profiles
 

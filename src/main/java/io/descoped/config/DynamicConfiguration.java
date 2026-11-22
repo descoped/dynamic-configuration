@@ -407,6 +407,8 @@ public sealed interface DynamicConfiguration permits Snapshot {
          * {@link ConfigurationException} that names each variable that matches no key (a mistyped
          * {@code MYAPP_SERVER_PROT}, say). Only the names are reported, never the values. A variable counts as
          * matching when it is one of the names {@link #environment()} looks for, for any key the configuration has.
+         * Every variable with the prefix counts, so choose a prefix nothing else reads: {@code CONFIG_} would catch
+         * {@code CONFIG_PROFILES}.
          *
          * @param prefix the variable name prefix, not empty (without one every variable of the process would count)
          * @return this builder
