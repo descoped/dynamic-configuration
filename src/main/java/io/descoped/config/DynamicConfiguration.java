@@ -397,7 +397,26 @@ public sealed interface DynamicConfiguration permits Snapshot {
          * @return this builder
          */
         public Builder environment(String prefix) {
-            layers.add(new Layer.Environment(Objects.requireNonNull(prefix, "prefix")));
+            layers.add(new Layer.Environment(Objects.requireNonNull(prefix, "prefix"), false));
+            return this;
+        }
+
+        /**
+         * Like {@link #environment(String)}, and every environment variable whose name starts with the prefix must
+         * override a key: {@link #build()} and {@link DynamicConfiguration#reload()} fail with a
+         * {@link ConfigurationException} that names each variable that matches no key (a mistyped
+         * {@code MYAPP_SERVER_PROT}, say). Only the names are reported, never the values. A variable counts as
+         * matching when it is one of the names {@link #environment()} looks for, for any key the configuration has.
+         *
+         * @param prefix the variable name prefix, not empty (without one every variable of the process would count)
+         * @return this builder
+         * @throws IllegalArgumentException if {@code prefix} is empty
+         */
+        public Builder strictEnvironment(String prefix) {
+            if (Objects.requireNonNull(prefix, "prefix").isEmpty()) {
+                throw new IllegalArgumentException("strictEnvironment needs a prefix");
+            }
+            layers.add(new Layer.Environment(prefix, true));
             return this;
         }
 

@@ -67,7 +67,8 @@ public sealed interface Layer {
         }
     }
 
-    record Environment(String prefix) implements Overriding {
+    /** With {@code strict}, every variable starting with the (non-empty) prefix must match a known key. */
+    record Environment(String prefix, boolean strict) implements Overriding {
         @Override
         public String describe() {
             return prefix.isEmpty() ? "environment" : "environment (prefix " + prefix + ")";
