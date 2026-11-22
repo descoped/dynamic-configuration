@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -307,6 +308,9 @@ public final class Resolver {
         Map<String, Value> values;
         if (layer instanceof Layer.Environment env) {
             values = environmentOverrides(env.prefix(), knownKeys, problems);
+            if (env.strict()) {
+                unknownVariables(env.prefix(), knownKeys, problems);
+            }
         } else if (layer instanceof Layer.SystemProperties props) {
             values = systemPropertyOverrides(props.prefix(), knownKeys);
         } else {
@@ -335,6 +339,24 @@ public final class Resolver {
             }
         }
         return values;
+    }
+
+    /** Records, by name only, every variable starting with {@code prefix} that is no candidate name of a known key. */
+    private void unknownVariables(String prefix, Set<String> knownKeys, List<String> problems) {
+        Set<String> candidates = new HashSet<>();
+        for (String key : knownKeys) {
+            candidates.addAll(EnvironmentNames.candidates(prefix, key));
+        }
+        List<String> unknown = environment.keySet().stream()
+                .filter(name -> name.startsWith(prefix) && !candidates.contains(name))
+                .sorted()
+                .toList();
+        if (!unknown.isEmpty()) {
+            problems.add("environment variable(s) " + String.join(", ", unknown) + " match no configuration key: a "
+                    + "variable " + prefix + "<KEY> overrides a key that a source defines, written as the key, with "
+                    + "every non-alphanumeric character as _, or that in upper case (" + prefix
+                    + "SERVER_PORT for server.port)");
+        }
     }
 
     private String firstSetVariable(List<String> names) {

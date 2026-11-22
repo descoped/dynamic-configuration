@@ -28,7 +28,7 @@ module path.
 <dependency>
     <groupId>io.descoped.config</groupId>
     <artifactId>dynamic-configuration</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 </dependency>
 ```
 
@@ -77,6 +77,7 @@ Sources are applied in the order you add them; a later source wins.
 | `file(path)` / `requiredFile(path)` | A properties file, relative to the working directory | skipped / fails |
 | `directory(path)` | One key per regular, non-hidden file; content is the value (one trailing line break removed); all secret | skipped |
 | `environment()` / `environment(prefix)` | Overrides declared keys only | |
+| `strictEnvironment(prefix)` | Same, and fails on a prefixed variable that matches no key | |
 | `systemProperties()` / `systemProperties(prefix)` | Overrides declared keys only | |
 | `values(map)` / `value(key, value)` | Values from code | |
 | `source(ConfigurationSource)` | Your own source: YAML, JSON, a vault, ... | |
@@ -100,6 +101,12 @@ system properties never add keys, so only what you declared is configurable: to 
 Without a prefix, every variable a container already has can override a key of the same name: a key `home`, `user`,
 `path` or `lang` is overridden by `HOME`, `USER`, `PATH` or `LANG`. Prefer a prefix, `environment("MYAPP_")`, unless
 your keys are all namespaced (`server.port`, `db.url`).
+
+Since a variable never adds a key, a mistyped one (`MYAPP_SERVER_PROT`) is ignored. `strictEnvironment("MYAPP_")`
+(since 3.0.2) reads variables like `environment("MYAPP_")`, and `build()` (and `reload()`) fails naming every variable
+with the prefix that matches no key (names only, never values). It needs a prefix, and every variable with that prefix
+counts, so choose one that nothing else reads: `CONFIG_` would catch `CONFIG_PROFILES`, and `APP_` would catch the
+variables of a second `environment("APP_DB_")`.
 
 ### Profiles
 
