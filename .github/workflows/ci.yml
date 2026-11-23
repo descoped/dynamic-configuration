@@ -1,6 +1,6 @@
 name: CI
 
-# One job on JDK 17, the baseline: every build compiles with `release 17`, so the bytecode does not depend on the
+# Builds and tests in one job on JDK 17, the baseline: every build compiles with `release 17`, so the bytecode does not depend on the
 # JDK, and 17 is the oldest runtime users have. Pull requests: build, tests, Javadoc and the JPMS consumer smoke test.
 # Pushes to master and release tags add coverage and the SonarCloud analysis (not gating). The job `snapshot`
 # publishes SNAPSHOTs to maven.descoped.io (AWS CodeArtifact): on a push to master, and by workflow_dispatch on a
@@ -78,8 +78,12 @@ jobs:
   snapshot:
     name: Publish SNAPSHOTs
     needs: build
+    # The release plugin pushes its "prepare release" commit (a release version) to master on its own; that commit
+    # is not a SNAPSHOT, so the job skips it instead of failing at "Only a SNAPSHOT". The next commit, "prepare for
+    # next development iteration", publishes the next SNAPSHOT.
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/master')
+      (github.event_name == 'push' && github.ref == 'refs/heads/master'
+        && !startsWith(github.event.head_commit.message, '[maven-release-plugin] prepare release '))
       || (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
