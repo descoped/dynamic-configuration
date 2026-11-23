@@ -56,15 +56,24 @@
         <tag>HEAD</tag>
     </scm>
 
-    <!-- Snapshots go to the Central Portal snapshot repository, by hand and only when the owner asks (CI publishes
-         nothing; the Portal limits publishing per month). Releases go through the Central Portal by
-         central-publishing-maven-plugin (profile `central`). Server id `central` holds the Portal user token. -->
-    <distributionManagement>
-        <snapshotRepository>
-            <id>central</id>
-            <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
+    <!-- SNAPSHOTs are read from Descoped's public SNAPSHOT repository; Maven Central stays the implicit default for
+         releases. Never the id `descoped-snapshots` here: that server holds the publishing token. -->
+    <repositories>
+        <repository>
+            <id>descoped-snapshots-public</id>
+            <url>https://maven.descoped.io/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <!-- No distributionManagement, on purpose: SNAPSHOTs are published only by CI's `snapshot` job, which names
+         maven.descoped.io on its command line (for SNAPSHOT versions only), and releases go through the Central
+         Portal (profile `central`). A plain `deploy` anywhere else has no target and fails. -->
 
     <dependencyManagement>
         <dependencies>
@@ -99,9 +108,8 @@
     </dependencies>
 
     <profiles>
-        <!-- Publishing to Maven Central through the Central Portal.
-             Snapshot (no signing needed; by hand, only when the owner asks, counts against the Portal's monthly
-             limit): ./mvnw deploy -P central,secrets
+        <!-- Releases to Maven Central through the Central Portal; never a SNAPSHOT (the enforcer execution
+             only-releases-to-central stops one at validate).
              Release (Ove approves each one): ./mvnw release:prepare release:perform -P secrets
              (releaseProfiles adds central,sign). A release is uploaded with autoPublish=false and published by hand
              in the Portal. -->
@@ -111,8 +119,29 @@
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>only-releases-to-central</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireReleaseVersion>
+                                            <message>Only releases go to Maven Central; SNAPSHOTs go to maven.descoped.io (published by CI).</message>
+                                        </requireReleaseVersion>
+                                        <requireReleaseDeps>
+                                            <message>A release has no SNAPSHOT dependency.</message>
+                                        </requireReleaseDeps>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
-                        <version>3.4.0</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>
@@ -230,6 +259,27 @@
     </profiles>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <!-- Sources for releases (profile central) and SNAPSHOTs (CI's snapshot job). -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.4.0</version>
+                </plugin>
+                <!-- Used by CI's snapshot job (help:evaluate, versions:set). -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-help-plugin</artifactId>
+                    <version>3.6.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>versions-maven-plugin</artifactId>
+                    <version>2.25.3</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

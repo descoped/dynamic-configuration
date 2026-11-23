@@ -30,9 +30,14 @@ configuration library for Java services. Owned by Descoped; designed here, after
   escapes fail, never replaced silently). A default covers a missing value, never a malformed one.
 - `DynamicConfiguration` is sealed; its only implementation is the package-private `Snapshot` in the same package
   (a sealed type on the class path requires its permitted subclasses in the same package).
-- **Publishing.** CI publishes nothing to Maven Central, not even SNAPSHOTs: the Central Portal limits publishing per
-  month, and releases need it. Releases go through the Central Portal (profiles `central,sign`), by hand and only with
-  the owner's approval.
+- **Publishing.** Nothing but a release goes to Maven Central, through the Central Portal (profiles `central,sign`),
+  by hand and only with the owner's approval; the `central` profile's enforcer execution `only-releases-to-central`
+  refuses a SNAPSHOT at `validate`. CI publishes nothing to Maven Central.
+- **SNAPSHOTs.** SNAPSHOTs go only to maven.descoped.io (Descoped's AWS CodeArtifact), from CI's `snapshot` job: on a
+  push to master, or by `workflow_dispatch` on a branch as `X.Y.Z-<branch>-SNAPSHOT`. The job names the target on its
+  command line (`-DaltSnapshotDeploymentRepository`), and the POM has no `distributionManagement` at all: that is
+  what makes a release version fail to deploy there. Never add one. No AWS account ID or CodeArtifact endpoint in
+  any public file (POM, workflow, deployed POM, CI log).
 
 ## Commands
 
@@ -42,8 +47,7 @@ configuration library for Java services. Owned by Descoped; designed here, after
 src/it/consumer/run.sh              # after package: a separate named module uses the jar, module and class path
 ./mvnw verify -P coverage           # JaCoCo report in target/site/jacoco
 ./mvnw install                      # the current SNAPSHOT into ~/.m2 for local consumers
-./mvnw deploy -P central,secrets    # SNAPSHOT to the Central Portal by hand, only when the owner asks
-                                    # (counts against the Portal's monthly limit; token from ~/.mavenrc)
+gh workflow run ci.yml --ref <branch>  # publishes X.Y.Z-<branch>-SNAPSHOT to maven.descoped.io
 ```
 
 Always `./mvnw`, never a system `mvn`, so every build uses the same Maven.
