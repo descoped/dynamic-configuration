@@ -175,10 +175,20 @@ throws, even with a default: defaults cover *missing*, never *wrong*.
 
 ## Snapshots
 
-SNAPSHOTs are not published. To try unreleased changes, install `master` into your local repository:
+SNAPSHOTs are published to Descoped's public SNAPSHOT repository, https://maven.descoped.io/, never to Maven Central:
+every change merged to `master` as `X.Y.Z-SNAPSHOT` (the next version, for example `3.0.3-SNAPSHOT`), and a branch on
+request as `X.Y.Z-<branch>-SNAPSHOT`. Depend on `X.Y.Z-SNAPSHOT`, never on a timestamped build: older builds are
+deleted after 14 days, and a branch SNAPSHOT 30 days after its last build. Add the repository:
 
-```bash
-git clone https://github.com/descoped/dynamic-configuration && cd dynamic-configuration && ./mvnw install
+```xml
+<repositories>
+    <repository>
+        <id>descoped-snapshots-public</id>
+        <url>https://maven.descoped.io/</url>
+        <releases><enabled>false</enabled></releases>
+        <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+</repositories>
 ```
 
 ## Building
@@ -206,4 +216,4 @@ Build with the same major JDK as `Build-Jdk-Spec` in the released jar's `META-IN
 `gpg --verify`. Releases before 3.0.1 were not built reproducibly.
 
 CI builds and tests every pull request on JDK 17, the baseline, in one job; every merge to `master` also runs coverage
-and SonarCloud. CI publishes nothing; releases are published to Maven Central by hand.
+and SonarCloud and publishes a SNAPSHOT to maven.descoped.io. Releases are published to Maven Central by hand.
